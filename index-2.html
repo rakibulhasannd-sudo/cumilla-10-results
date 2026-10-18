@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>কুমিল্লা-১০ — কেন্দ্রভিত্তিক ফলাফল</title>
+<style>
+  :root{--bg:#0b1220;--card:#121a2b;--line:#223049;--text:#e8edf5;--muted:#93a1b8;--accent:#3b82f6;--warn:#f59e0b;--ok:#34d399}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,"Noto Sans Bengali","Kalpurush",sans-serif;line-height:1.5}
+  header{padding:24px 16px 8px;max-width:1100px;margin:0 auto}
+  h1{font-size:1.4rem;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:.9rem}
+  main{max-width:1100px;margin:0 auto;padding:8px 16px 40px}
+  .tools{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+  input{flex:1;min-width:200px;background:var(--card);border:1px solid var(--line);color:var(--text);padding:10px 12px;border-radius:10px;font:inherit}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:12px 0 20px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .stat b{display:block;font-size:1.3rem}
+  .stat span{color:var(--muted);font-size:.8rem}
+  .wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+  table{border-collapse:collapse;width:100%;min-width:820px;font-size:.88rem}
+  th,td{padding:10px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+  th:first-child,td:first-child{text-align:left;white-space:normal;position:sticky;left:0;background:var(--card)}
+  th{color:var(--muted);font-weight:600;font-size:.78rem}
+  th small{display:block;font-weight:400}
+  .lead{color:var(--ok);font-weight:700}
+  .badge{font-size:.7rem;color:var(--warn);margin-left:6px}
+  tfoot td{font-weight:700;border-bottom:0}
+  .msg{padding:24px;text-align:center;color:var(--muted)}
+  footer{max-width:1100px;margin:0 auto;padding:0 16px 32px;color:var(--muted);font-size:.78rem}
+</style>
+</head>
+<body>
+<header>
+  <h1>কুমিল্লা-১০ (আসন ২৫৮) — কেন্দ্রভিত্তিক ফলাফল</h1>
+  <div class="sub">সূত্র: ফরম ১৬ (ভোট গণনার বিবরণী)। ফলাফল ধাপে ধাপে যোগ হচ্ছে।</div>
+</header>
+<main>
+  <div class="grid" id="stats"></div>
+  <div class="tools"><input id="q" placeholder="কেন্দ্রের নাম বা নম্বর খুঁজুন…" autocomplete="off"></div>
+  <div class="wrap"><div id="out" class="msg">লোড হচ্ছে…</div></div>
+</main>
+<footer>
+  "যাচাই বাকি" চিহ্নিত কেন্দ্রের সংখ্যা মূল ফরম ১৬-এর সাথে মেলানো হয়নি; যোগফলে শুধু যাচাইকৃত কেন্দ্র ধরা হয়েছে।
+</footer>
+<script>
+const SUPABASE_URL = "https://kfjfejlhkrinwwxkkmah.supabase.co";
+const SUPABASE_KEY = "sb_publishable_j67Mi2e3BTJ4IGggFvGFeA_iPQLs5p_";
+
+const CANDS = [
+  ["votes_dhaner_shish","মোঃ মোবাশ্বের আলম ভূঁইয়া","ধানের শীষ"],
+  ["votes_dari_palla","মুহাম্মদ ইয়াছিন আরাফাত","দাঁড়িপাল্লা"],
+  ["votes_hatpakha","মোঃ শামছুদ্দোহা","হাতপাখা"],
+  ["votes_chori","কাজি নুরে আলম ছিদ্দিকি","ছড়ি"],
+  ["votes_projapoti","মোঃ আবদুল্লাহ আল নোমান","প্রজাপতি"],
+  ["votes_truck","রমিজ বিন আরিফ","ট্রাক"],
+  ["votes_dab","হাছান আহম্মেদ","ডাব"]
+];
+const bn = n => n==null ? "—" : Number(n).toLocaleString("bn-BD");
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let ROWS = [];
+
+async function load(){
+  const out = document.getElementById("out");
+  try{
+    const res = await fetch(SUPABASE_URL + "/rest/v1/centre_results?select=*", {
+      headers: { apikey: SUPABASE_KEY }
+    });
+    if(!res.ok) throw new Error("HTTP " + res.status);
+    ROWS = await res.json();
+    ROWS.sort((a,b) => parseInt(a.centre_no) - parseInt(b.centre_no));
+    render();
+  }catch(e){
+    out.className = "msg";
+    out.textContent = "ডেটা আনা যায়নি: " + e.message;
+  }
+}
+
+function render(){
+  const q = document.getElementById("q").value.trim();
+  const rows = ROWS.filter(r => !q || (r.centre_name_bn||"").includes(q) || String(r.centre_no).includes(q));
+  const ver = ROWS.filter(r => r.verified);
+  const sum = k => ver.reduce((s,r) => s + (r[k]||0), 0);
+
+  const totalsByCand = CANDS.map(c => sum(c[0]));
+  document.getElementById("stats").innerHTML =
+    `<div class="stat"><b>${bn(ROWS.length)}</b><span>কেন্দ্রের ফলাফল যোগ হয়েছে</span></div>` +
+    `<div class="stat"><b>${bn(ver.length)}</b><span>যাচাইকৃত কেন্দ্র</span></div>` +
+    `<div class="stat"><b>${bn(sum("valid_total"))}</b><span>বৈধ ভোট (যাচাইকৃত)</span></div>` +
+    `<div class="stat"><b>${bn(sum("rejected"))}</b><span>বাতিল ভোট (যাচাইকৃত)</span></div>`;
+
+  if(!rows.length){ document.getElementById("out").innerHTML = '<div class="msg">কিছু পাওয়া যায়নি।</div>'; return; }
+
+  const head = `<tr><th>কেন্দ্র</th>${CANDS.map(c=>`<th>${esc(c[2])}<small>${esc(c[1])}</small></th>`).join("")}<th>বৈধ</th><th>বাতিল</th><th>মোট</th></tr>`;
+  const body = rows.map(r => {
+    const vals = CANDS.map(c => r[c[0]]);
+    const max = Math.max(...vals.map(v => v==null ? -1 : v));
+    return `<tr><td>${bn(parseInt(r.centre_no))}. ${esc(r.centre_name_bn)}${r.verified?"":'<span class="badge">যাচাই বাকি</span>'}</td>` +
+      vals.map(v => `<td class="${v!=null && v===max && max>0 ? "lead":""}">${bn(v)}</td>`).join("") +
+      `<td>${bn(r.valid_total)}</td><td>${bn(r.rejected)}</td><td>${bn(r.grand_total)}</td></tr>`;
+  }).join("");
+  const foot = `<tr><td>যাচাইকৃত কেন্দ্রের যোগফল</td>${totalsByCand.map(v=>`<td>${bn(v)}</td>`).join("")}<td>${bn(sum("valid_total"))}</td><td>${bn(sum("rejected"))}</td><td>${bn(sum("grand_total"))}</td></tr>`;
+
+  document.getElementById("out").className = "";
+  document.getElementById("out").innerHTML = `<table><thead>${head}</thead><tbody>${body}</tbody><tfoot>${foot}</tfoot></table>`;
+}
+document.getElementById("q").addEventListener("input", render);
+load();
+</script>
+</body>
+</html>
